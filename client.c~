@@ -136,7 +136,7 @@ int main(int argc, char **argv){
 
 	s=my_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
-        udp_socket *connection = new udp_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+        //udp_socket *connection = new udp_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
 	father_srv.sin_family = AF_INET;
         father_srv.sin_addr = ((struct sockaddr_in*)(results->ai_addr))->sin_addr;
