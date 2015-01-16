@@ -10,7 +10,6 @@ Basically the project is based on a client and a server which can exchange any k
 - create a class to manage the socket
 - create a class to manage the list of commands
 - introducing a qt gui in order to get rid of the character interface
-- adding a Makefile to build the project
 - writing the features of the code
 
 ### Done
