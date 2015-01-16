@@ -1,18 +1,5 @@
 #include "udp_socket.h"
 
-class udp_socket
-{
-   public:
-      // send and receive functions
-      ssize_t recv_data(void *bufptr, size_t nbytes, int flags, struct sockaddr *sa, socklen_t *salenptr);
-      void send_data(void *bufptr, size_t nbytes, int flags, const struct sockaddr *sa, socklen_t salen);
-      // constructor and distructor
-      udp_socket(int family,int type,int protocol);
-      ~udp_socket();
-   private:
-      int fd;
-}
-
 ssize_t udp_socket::recv_data(void *bufptr, size_t nbytes, int flags, struct sockaddr *sa, socklen_t *salenptr)
 {
    ssize_t n;
@@ -42,6 +29,7 @@ void udp_socket::send_data(void *bufptr, size_t nbytes, int flags, const struct 
 udp_socket::udp_socket(int family, int type, int protocol)
 {
    fd = socket(family, type, protocol);
+   shut_mode = 2;
 
    if(fd < 0){
       printf("Error while creating socket, closing..\n");
@@ -51,6 +39,6 @@ udp_socket::udp_socket(int family, int type, int protocol)
 
 udp_socket::~udp_socket()
 {
-   shutdown(fd);
+   shutdown(fd, shut_mode);
    close(fd);
 }

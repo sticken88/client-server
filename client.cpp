@@ -53,9 +53,9 @@ extern int errno;
 
 /* prototipi per la gestione delle operazioni */
 
-/*int my_socket(int family,int type,int protocol);
+int my_socket(int family,int type,int protocol);
 void my_sendto(int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, socklen_t salen);
-ssize_t my_recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr);*/
+ssize_t my_recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr);
 
 int my_openR(int fd, char *nome);
 int my_openW(int fd, char *nome);
@@ -841,7 +841,7 @@ richiesta_ptr nuova(char *scelta,char *nome){
    
    richiesta_ptr nuovo=NULL;
 
-   nuovo=malloc(sizeof(richiesta));
+   nuovo= (richiesta_ptr) malloc(sizeof(richiesta));
 
    if(nuovo==NULL){
       printf("Errore allocazione nodo lista.\n");

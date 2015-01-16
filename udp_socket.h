@@ -9,6 +9,7 @@
 #include <arpa/inet.h> // inet_aton()
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
 
 class udp_socket
 {
@@ -21,6 +22,7 @@ class udp_socket
       ~udp_socket();
    private:
       int fd;
-}
+      int shut_mode; // used to specify how to shut down the socket: 2 means both ways
+};
 
 #endif
