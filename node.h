@@ -14,12 +14,15 @@ class node
       // getters
       char *get_choice(void);
       char *get_file_name(void);
+      node *get_next(void);
+      void set_next(node *next_node);
       // constructor and distructor
       node(char *choice, char *file_name);
       ~node();
    private:
       char *choice;
       char *file_name;
+      node *next;
 };
 
 #endif

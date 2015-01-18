@@ -1,19 +1,5 @@
 #include "node.h"
 
-class node
-{
-   public:
-      // getters
-      char *get_choice(void);
-      char *get_file_name(void);
-      // constructor and distructor
-      node(char *choice, char *file_name);
-      ~node();
-   private:
-      char *choice;
-      char *file_name;
-};
-
 char *node::get_choice(void)
 {
    return choice;
@@ -22,6 +8,16 @@ char *node::get_choice(void)
 char *node::get_file_name(void)
 {
    return file_name;
+}
+
+node *node::get_next(void)
+{
+   return next;
+}
+
+void node::set_next(node *next_node)
+{
+   this->next = next_node;
 }
 
 node::node(char *choice, char *file_name)
@@ -43,6 +39,7 @@ node::node(char *choice, char *file_name)
    }
 
    strcpy(this->file_name, file_name);
+   this->next = NULL;
 }
 
 node::~node()

@@ -19,7 +19,7 @@ class udp_socket
       void send_data(void *bufptr, size_t nbytes, int flags, const struct sockaddr *sa, socklen_t salen);
       int get_fd(void);
       // constructor and distructor
-      udp_socket(int family,int type,int protocol);
+      udp_socket(int family, int type, int protocol);
       ~udp_socket();
    private:
       int fd;
