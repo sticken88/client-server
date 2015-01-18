@@ -26,6 +26,11 @@ void udp_socket::send_data(void *bufptr, size_t nbytes, int flags, const struct 
    }
 }
 
+int udp_socket::get_fd(void)
+{
+   return fd;
+}
+
 udp_socket::udp_socket(int family, int type, int protocol)
 {
    fd = socket(family, type, protocol);

@@ -53,9 +53,9 @@ extern int errno;
 
 /* prototipi per la gestione delle operazioni */
 
-int my_socket(int family,int type,int protocol);
+/*int my_socket(int family,int type,int protocol);
 void my_sendto(int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, socklen_t salen);
-ssize_t my_recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr);
+ssize_t my_recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr);*/
 
 int my_openR(int fd, char *nome);
 int my_openW(int fd, char *nome);
@@ -134,7 +134,7 @@ int main(int argc, char **argv){
         hints.ai_socktype = SOCK_DGRAM;
         ret=getaddrinfo(argv[1],argv[2],&hints,&results);
 
-	s=my_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+	//s=my_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
         udp_socket *connection = new udp_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
@@ -146,18 +146,18 @@ int main(int argc, char **argv){
 
         FD_ZERO(&u_cset);
 	FD_SET(fileno(stdin), &u_cset);
-	FD_SET(s, &u_cset);
+	FD_SET(connection->get_fd(), &u_cset);
 
         FD_ZERO(&d_cset);
 	FD_SET(fileno(stdin), &d_cset);
-	FD_SET(s, &d_cset);
+	FD_SET(connection->get_fd(), &d_cset);
 
         printf("Cosa vuoi fare? UP per 'upload', DOWN per 'download', QUIT NOW per terminare un download corrente e ABORT ALL per terminare ogni operazione..\n");
 
         scanf("%s %s",choice,nome);
 
         if((strcmp(choice,"ABORT"))==0){
-           my_close(s);
+           ////my_close(s);
            exit(1);
         }
 
@@ -180,7 +180,7 @@ int main(int argc, char **argv){
            
            if((strcmp(choice,"ABORT"))==0){
               /* se entro qui la lista è vuota, dunque non devo fae nessuna free*/
-              my_close(s); /* chiusura socket */
+              ////my_close(s); /* chiusura socket */
               exit(1);
            }else{
               inserisci(&head,&tail,choice,nome);
@@ -203,7 +203,7 @@ int main(int argc, char **argv){
 
            FD_ZERO(&u_cset);
 	   FD_SET(fileno(stdin), &u_cset);
-	   FD_SET(s, &u_cset);
+	   FD_SET(connection->get_fd(), &u_cset);
 
 	   memset(buf_send,0,sizeof(buf_send));
 
@@ -211,7 +211,9 @@ int main(int argc, char **argv){
            size=strlen(buf_send);
            buf_send[size]='\0';
    
-           my_sendto(s,buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
+
+           connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
+           //my_sendto(s,buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
 
            printf("Inviato comando UP.\n");
 
@@ -227,9 +229,10 @@ int main(int argc, char **argv){
 
            FD_ZERO(&u_cset);
 	   FD_SET(fileno(stdin), &u_cset);
-	   FD_SET(s, &u_cset);
+	   FD_SET(connection->get_fd(), &u_cset);
 
-           my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&father_srvlen); // ricezione nuovo numero di porta con cui connettersi con il figlio
+           connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&father_srvlen);
+           //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&father_srvlen); // ricezione nuovo numero di porta con cui connettersi con il figlio
            new_port=atoi(buf_recv);
 
 	   child_srv.sin_family = AF_INET; // address family IPv4
@@ -240,16 +243,21 @@ int main(int argc, char **argv){
            sprintf(buf_send,"POSSO ?");
            dim2=strlen(buf_send);
            buf_send[dim2]='\0';
-           my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* usata solo per far conoscere al figlio l'identità del client */
+
+
+           connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+           //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* usata solo per far conoscere al figlio l'identità del client */
            memset(buf_send,0,sizeof(buf_send));
 
            if(select(FD_SETSIZE,&u_cset,NULL,NULL,&max_timeout)>0){
 
               FD_ZERO(&u_cset);
 	      FD_SET(fileno(stdin), &u_cset);
-	      FD_SET(s, &u_cset);
+	      FD_SET(connection->get_fd(), &u_cset);
 
-              my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
+
+              connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
+              //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
 
               if((strcmp(buf_recv,"GO"))==0){
                  flag=1; /* abilito il whil3 */
@@ -265,7 +273,7 @@ int main(int argc, char **argv){
            }else{
              printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
              free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
-             my_close(s);
+             //my_close(s);
              exit(1);
            }
 
@@ -279,7 +287,9 @@ int main(int argc, char **argv){
               memcpy(buf_send+dim,buf_tmp, size); // a questo punto in buf_send ho correttamente il nome del file, il num seq e "size" byte letti/ da inviare
           //    printf("Letto il frammento numero %d.\r\n",up_seq);
           
-	      my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+
+              connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+	      //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
 
            /*   printf("Inviato il frammento numero %d, contenente %d byte.\r\n",up_seq,size);*/
               // controllo sul numero di sequenza e timeout finchè i numeri di sequenza non coincidono
@@ -292,7 +302,7 @@ int main(int argc, char **argv){
 
                  FD_ZERO(&u_cset);
 	         FD_SET(fileno(stdin), &u_cset);
-	         FD_SET(s, &u_cset);
+	         FD_SET(connection->get_fd(), &u_cset);
 
                  if(select(FD_SETSIZE,&u_cset,NULL,NULL,&timeout)>0){ // se non scatta il timeout ma ricevo dati, ne controllo il numero di sequenza
 
@@ -309,9 +319,11 @@ int main(int argc, char **argv){
                         sprintf(buf_send,"%s %"PRId32" %d ",ext_nome,up_seq,size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
-                        my_sendto(s,buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+                        
+                        connection->send_data(buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+                        //my_sendto(s,buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
 
-                        close_and_quit(fdR,s,&head);
+                        close_and_quit(fdR, connection->get_fd(), &head);
                      }
 
                      if((strcmp(choice,"QUIT"))==0){
@@ -322,8 +334,13 @@ int main(int argc, char **argv){
                         sprintf(buf_send,"%s %"PRId32" %d ",ext_nome,up_seq,size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
-                        my_sendto(s,buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
-                        my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); /* ricevo ack e non lo controllo */
+
+			connection->send_data(buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+                        //my_sendto(s,buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                        connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+                        //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); /* ricevo ack e non lo controllo */
+
                         my_close(fdR); /* chiudo soltanto il file descriptor e posso ancora fare altre operazioni: non libero lista e non chiudo socket*/
                         break;
                      }
@@ -336,15 +353,17 @@ int main(int argc, char **argv){
 		  if(FD_ISSET(s,&u_cset)){
 
                     memset(buf_recv,0,sizeof(buf_recv));
-                    dim2=my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); // controllo il numero di sequenza
-
+                    //dim2 = my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); // controllo il numero di sequenza
+                    dim2 = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
                     buf_recv[dim2]='\0';
 
                     sscanf(buf_recv,"%"SCNu32"",&recv_seq);
                     /*printf("Ricevuto ack %"PRId32"\n",recv_seq);*/
                        if(up_seq!=recv_seq){
                          printf("\n corrente: %"PRId32" - ricevuto: %"PRId32"",up_seq,recv_seq);
-                         my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                         //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+                         connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
                          prove++; 
 
                          if(prove==3){
@@ -355,7 +374,10 @@ int main(int argc, char **argv){
                      }
                     }else{ // se scatta il timeout senza aver ricevuto risposta reinvio il pacchetto
                        printf("\nTimeout scaduto: invio ancora il pacchetto %"PRId32". Tentativo [%d]\n",up_seq,tentativi+1);
-                       my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                       //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+                       connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+
                        tentativi++;
 
                        if(tentativi==3){
@@ -374,7 +396,9 @@ int main(int argc, char **argv){
                  memset(buf_recv,0,sizeof(buf_recv));
                  size=strlen(buf_send);
 		 buf_send[size]='\0';
-                 my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                 //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                 connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
               }
               
 	      up_seq++;
@@ -391,24 +415,32 @@ int main(int argc, char **argv){
 
                  FD_ZERO(&u_cset);
 	         FD_SET(fileno(stdin), &u_cset);
-	         FD_SET(s, &u_cset);
+	         FD_SET(connection->get_fd(), &u_cset);
                  
                  timeout.tv_sec=TIMEOUT;
 	         timeout.tv_usec=0;
 
                  if(select(FD_SETSIZE,&u_cset,NULL,NULL,&timeout)>0){
-                    my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+
+                    //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+                    connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+
               	    if(strcmp(buf_recv,"OK")==0){
                        printf("\nFile '%s' inviato correttamente.\n",ext_nome);
 	               my_close(fdR);
                     }else{
                        printf("[%d]Non ho ricevuto risposta positiva dal server, riprovo.\n",prove+1);
-                       my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                       //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                       connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
                        prove++;
                     }
                  }else{ // timeout scaduto, invio di nuovo..
                     printf("[%d]Timeout scaduto: invio ancora pacchetto finale.\n",tentativi+1);
-                    my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                    //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                    connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
                     tentativi++;
                  }
               }while(((strcmp(buf_recv,"OK")!=0) && (tentativi<3)) || ((strcmp(buf_recv,"OK")!=0) && (tentativi<3)));
@@ -419,7 +451,7 @@ int main(int argc, char **argv){
           }else{
              printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
              free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
-             my_close(s);
+             //my_close(s);
              exit(1);
           }
 
@@ -443,12 +475,16 @@ int main(int argc, char **argv){
            sprintf(buf_send,"%s %s",ext_choice,ext_nome);
            size=strlen(buf_send);
            buf_send[size]='\0';
-           my_sendto(s,buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen); // invio comando di DOWNLOAD
+
+           //my_sendto(s,buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen); // invio comando di DOWNLOAD
+           connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
+
+
            printf("Inviato '%s %s'.\n",ext_choice,ext_nome);
 
            FD_ZERO(&d_cset);
 	   FD_SET(fileno(stdin), &d_cset);
-	   FD_SET(s, &d_cset);
+	   FD_SET(connection->get_fd(), &d_cset);
 
            memset(buf_recv,0,sizeof(buf_recv));
 
@@ -459,9 +495,12 @@ int main(int argc, char **argv){
 
            FD_ZERO(&d_cset);
 	   FD_SET(fileno(stdin), &d_cset);
-	   FD_SET(s, &d_cset);
+	   FD_SET(connection->get_fd(), &d_cset);
 
-           size=my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen); /* ricevo conferma o meno dal server*/
+           //size=my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen); /* ricevo conferma o meno dal server*/
+           size = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen);
+
+
            buf_recv[size]='\0';
 
            if((strcmp(buf_recv,"OK"))==0){ /* file presente sul server*/
@@ -479,7 +518,11 @@ int main(int argc, char **argv){
               if(select(FD_SETSIZE,&d_cset,NULL,NULL,&max_timeout)>0){ /* attendo al massimo 5 minuti la risposta del server */
 
               memset(buf_recv,0,sizeof(buf_recv));
-              my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen); // ricezione nuovo numero di porta con cui connettersi con il figlio
+
+              //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen); // ricezione nuovo numero di porta con cui connettersi con il figlio
+ 
+              connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen);
+
               new_port=atoi(buf_recv);
 
               child_srv.sin_family = AF_INET; // address family IPv4
@@ -490,12 +533,17 @@ int main(int argc, char **argv){
               sprintf(buf_send,"POSSO ?");
               dim2=strlen(buf_send);
               buf_send[dim2]='\0';
-              my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* usata solo per far conoscere al figlio l'identità del client */
+
+              //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* usata solo per far conoscere al figlio l'identità del client */
+
+              connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
               memset(buf_send,0,sizeof(buf_send));
 
            if(select(FD_SETSIZE,&u_cset,NULL,NULL,&max_timeout)>0){
 
-              my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
+              //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
+              connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
 
               if((strcmp(buf_recv,"GO"))==0){
                  cont=1; /* abilito il whil3 */
@@ -512,7 +560,7 @@ int main(int argc, char **argv){
            }else{
              printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
              free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
-             my_close(s);
+             //my_close(s);
              exit(1);
            }
 
@@ -520,7 +568,7 @@ int main(int argc, char **argv){
           
               FD_ZERO(&d_cset);
 	      FD_SET(fileno(stdin), &d_cset);
-	      FD_SET(s, &d_cset);
+	      FD_SET(connection->get_fd(), &d_cset);
 
               fdW=my_openW(fdW,ext_nome); // apertura file in scrittura
 
@@ -534,7 +582,9 @@ int main(int argc, char **argv){
 		  sprintf(buf_send,"%d",BUFLEN);
 		  size=strlen(buf_send);
                   buf_send[size]='\0';
-		  my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* invio n° byte che voglio ricevere */
+
+		  //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen); /* invio n° byte che voglio ricevere */
+                  connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
  
 		  if(select(FD_SETSIZE,&d_cset,NULL,NULL,&timeout)>0){ // se non scatta il timeout ma ricevo dati, ne controllo il numero di sequenza
 
@@ -556,8 +606,13 @@ int main(int argc, char **argv){
                               sprintf(buf_send,"%d",-1);
                               size=strlen(buf_send);
                               buf_send[size]='\0';
-                              my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);// devo inviare il comando al server
-                              my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); /* ricevo l'ultimo pacchetto che il server mi manda*/
+
+                              //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);// devo inviare il comando al server
+                              connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
+                              //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); /* ricevo l'ultimo pacchetto che il server mi manda*/
+                              connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+
                               memset(buf_send,0,sizeof(buf_send));
                               memset(buf_recv,0,sizeof(buf_recv));
                               memset(ext_nome,0,sizeof(ext_nome));
@@ -577,20 +632,27 @@ int main(int argc, char **argv){
                               sprintf(buf_send,"%d",-2); /* -1 per QUIT, -2 per ABORT*/
                               size=strlen(buf_send);
                               buf_send[size]='\0';
-                              my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);// devo inviare il comando al server
+
+                              //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);// devo inviare il comando al server
+                              connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+
                               memset(buf_send,0,sizeof(buf_send));
 
-                              close_and_quit(fdW,s,&head);
+                              // ragionare sul da farsi
+                              //close_and_quit(fdW,s,&head);
                            }
                         }
 
-                        FD_SET(s,&d_cset); 
+                        FD_SET(connection->get_fd(), &d_cset); 
                      }
 
-                     if(FD_ISSET(s,&d_cset)){
+                     if(FD_ISSET(connection->get_fd(), &d_cset)){
 
                         memset(buf_recv,0,sizeof(buf_recv));
-			size=my_recvfrom(s,buf_recv,MAX_DIM,0,(struct sockaddr*)&child_srv,&child_srvlen);
+
+			//size = my_recvfrom(s,buf_recv,MAX_DIM,0,(struct sockaddr*)&child_srv,&child_srvlen);
+                        size = connection->recv_data(buf_recv,MAX_DIM,0,(struct sockaddr*)&child_srv,&child_srvlen);
+
 		          // se ricevo dati controllo numero di sequenza e file e poi scrivo se è il caso
 		        memset(recv_data,0,sizeof(recv_data));
 		        sscanf(buf_recv,"%s %"SCNd32" %d",recv_file,&recv_seq,&recv_bytes);
@@ -611,7 +673,9 @@ int main(int argc, char **argv){
 		           dim=strlen(send_ack);
 		           send_ack[dim]='\0';
                             // printf("ACK inviato = %s\n",send_ack);
-		           my_sendto(s,send_ack,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+
+		           //my_sendto(s,send_ack,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+                           connection->send_data(send_ack,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
 		           down_seq++;
 			   memset(send_ack,0,sizeof(send_ack));
@@ -625,7 +689,9 @@ int main(int argc, char **argv){
 		           sprintf(buf_send,"%"PRId32"",down_seq);
 		           dim=strlen(buf_send);
                            buf_send[dim]='\0';
-		           my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+
+		           //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+                           connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
 			   prove++;
 
@@ -644,7 +710,9 @@ int main(int argc, char **argv){
 
 		  }else{ // timeout scaduto
 		     printf("[%d]Timeout scaduto - frammento non ricevuto.\n",tentativi+1);
-		     my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+
+		     //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
+                     connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
                      tentativi++;
                    
                      if(tentativi==3){ /* esco dal ciclo, chiudo fd, rimuovo log e file incompleto */
@@ -664,7 +732,9 @@ int main(int argc, char **argv){
                   sprintf(buf_send,"%d",0);
                   dim=strlen(buf_send);
                   buf_send[dim]='\0';
-                  my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen); // invio 0 byte da leggere
+
+                  //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen); // invio 0 byte da leggere
+                  connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
                   my_close(fdW);
                   clear(log_name); /* elimino il file di log se tutto va bene */
@@ -677,7 +747,7 @@ int main(int argc, char **argv){
              }else{
                printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
                free_list(&head);
-               my_close(s);
+               //my_close(s);
                exit(1);
              }
                
@@ -689,14 +759,14 @@ int main(int argc, char **argv){
           }else{
              printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
              free_list(&head);
-             my_close(s);
+             //my_close(s);
              exit(1);
           }
 	} /* fine if per DOWN*/
      } /* file else dell'UP*/
   } /* fine while*/	
 
-      my_close(s);
+      //my_close(s);
 
 return(0);
 }
@@ -715,7 +785,7 @@ int my_socket(int family,int type,int protocol){
 void close_and_quit(int fd,int s,richiesta_ptr *head){ /* chiude socket, file descriptor e libera la lista */
    
    my_close(fd);
-   my_close(s);
+   //my_close(s);
 
    free_list(head);
   
