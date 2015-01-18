@@ -771,17 +771,6 @@ int main(int argc, char **argv){
 return(0);
 }
 
-int my_socket(int family,int type,int protocol){
-
-   int s;
-
-	if((s=socket(family,type,protocol))<0){
-           printf("Errore creazione socket.\n");
-           exit(1);
-        }
-   return(s);
-}
-
 void close_and_quit(int fd,int s,richiesta_ptr *head){ /* chiude socket, file descriptor e libera la lista */
    
    my_close(fd);
@@ -877,25 +866,6 @@ void my_close(int fd){
       printf("Errore chiusura file descriptor.\n");
       return;
    }
-}
-
-ssize_t my_recvfrom(int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr){
-
-	ssize_t n;
-        memset(bufptr,0,sizeof(bufptr));
-	if((n = recvfrom(fd,bufptr,nbytes,flags,sa,salenptr))<0){
-	   printf("Errore nella recvfrom.\n");
-           return(0);
-        }
-	return n;
-}
-
-void my_sendto(int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, socklen_t salen){
-	if(((size_t)sendto(fd,bufptr,nbytes,flags,sa,salen))!=nbytes){
-           printf("Errore nella sendto: '%s' \n",strerror(errno));
-           return;
-        }
-        memset(bufptr,0,sizeof(bufptr));
 }
 
 void clear(char *nome_file){
