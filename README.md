@@ -8,6 +8,7 @@ Basically the project is based on a client and a server which can exchange any k
 
 ### Todo
 - create a class to manage the log file(s)
+- creating folders for every object or a folder called 'utils'
 - divide the main in 'initializing', 'parsing request(s)' and 'process/serve'
 - introducing a qt gui in order to get rid of the character interface
 - writing the features of the code

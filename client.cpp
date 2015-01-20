@@ -27,6 +27,7 @@
 
 #include "udp_socket.h"
 #include "linked_list.h"
+#include "log_manager.h"
 
 #define SA struct sockaddr
 
@@ -37,42 +38,15 @@
 #define CHOICE 5
 #define TIMEOUT 30
 #define MAX_TIMEOUT 300
-#define LOG_EXT ".log"
-#define CDIR "./"
-
-struct nodo{
-            char scelta[CHOICE];
-            char nome_file[LENGTH];
-
-            struct nodo *next;
-};
-
-typedef struct nodo richiesta;
-typedef richiesta *richiesta_ptr;
 
 extern int errno;
-
-/* prototipi per la gestione delle operazioni */
-
-/*int my_socket(int family,int type,int protocol);
-void my_sendto(int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, socklen_t salen);
-ssize_t my_recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr);*/
 
 int my_openR(int fd, char *nome);
 int my_openW(int fd, char *nome);
 void my_close(int fd);
 
 void clear(char *nome_file);
-void close_and_quit(int fd, int s, richiesta_ptr *head);
-
-/* prototipi per gestire la lista di richieste */
-
-richiesta_ptr nuova(char *scelta,char *nome);
-void estrai(richiesta_ptr *tail,richiesta_ptr *head,char *scelta,char *nome);
-void inserisci(richiesta_ptr *head,richiesta_ptr *tail,char *choice,char *nome);
-int vuota(richiesta_ptr *head);
-void print_list(richiesta_ptr *head);
-void free_list(richiesta_ptr *head);
+//void close_and_quit(int fd, int s, richiesta_ptr *head);
 
 /* funzioni per la gestione del file di log */
 void create_log(char *file,char *log_name);
@@ -110,9 +84,9 @@ int main(int argc, char **argv){
         struct timeval max_timeout;
 	fd_set u_cset,d_cset;
 
-        richiesta_ptr tail,head;
+        //richiesta_ptr tail,head;
 
-	tail=head=NULL;
+	//tail=head=NULL;
 
         if(argc!=3){
            printf("Error while passing initial parameters: IP address and port needed, closing..\n");
@@ -820,7 +794,7 @@ int main(int argc, char **argv){
 return(0);
 }
 
-void close_and_quit(int fd,int s,richiesta_ptr *head){ /* chiude socket, file descriptor e libera la lista */
+/*void close_and_quit(int fd,int s,richiesta_ptr *head){
    
    my_close(fd);
    //my_close(s);
@@ -828,7 +802,7 @@ void close_and_quit(int fd,int s,richiesta_ptr *head){ /* chiude socket, file de
    free_list(head);
   
    exit(1);
-}
+}*/
 
 void create_log(char *file,char *log_name){
 
@@ -891,6 +865,15 @@ void check_log(void){
 
 }
 
+void clear(char *nome_file){
+
+   if((remove(nome_file))==-1){
+      printf("Errore eliminazione file '%s'.\n",nome_file);
+   }else{
+      printf("File '%s' eliminato correttamente.\n",nome_file);
+   }
+}
+
 int my_openR(int fd, char *nome){
 
    if((fd=open(nome, O_RDONLY))<0){
@@ -914,14 +897,5 @@ void my_close(int fd){
    if(close(fd)<0){
       printf("Errore chiusura file descriptor.\n");
       return;
-   }
-}
-
-void clear(char *nome_file){
-
-   if((remove(nome_file))==-1){
-      printf("Errore eliminazione file '%s'.\n",nome_file);
-   }else{
-      printf("File '%s' eliminato correttamente.\n",nome_file);
    }
 }
