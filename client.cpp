@@ -26,12 +26,13 @@
 #include <signal.h>
 
 #include "udp_socket.h"
+#include "linked_list.h"
 
 #define SA struct sockaddr
 
 #define BUFLEN 1000
 #define MAX_DIM 1200
-#define NAME 100
+#define LENGTH 100
 #define MAX_CHAR 200
 #define CHOICE 5
 #define TIMEOUT 30
@@ -41,7 +42,7 @@
 
 struct nodo{
             char scelta[CHOICE];
-            char nome_file[NAME];
+            char nome_file[LENGTH];
 
             struct nodo *next;
 };
@@ -88,15 +89,15 @@ int main(int argc, char **argv){
         char buf_tmp[BUFLEN];
         char buf_send[MAX_DIM];
 	char buf_recv[BUFLEN];
-        char choice[CHOICE];
-        char nome[NAME];
-        char new_choice[CHOICE];
-        char new_nome[NAME];
+        //char choice[CHOICE];
+        //char nome[LENGTH];
+        //char new_choice[CHOICE];
+        //char new_nome[LENGTH];
         char log_name[50];
         char recv_file[MAX_CHAR];
         char send_ack[MAX_CHAR];
         char recv_data[BUFLEN];
-        char ext_choice[CHOICE],ext_nome[NAME];
+        //char ext_choice[CHOICE],ext_nome[LENGTH];
         int fdR,fdW;
 	int empty,ret,check_file,dim2,flag,cont,check_port; /* sarà riempito dal server*/
 	int size,dim,recv_bytes,new_port,check,tentativi,prove; /* n byte letti da rcvfrom*/
@@ -128,6 +129,49 @@ int main(int argc, char **argv){
         check_log(); /* controllo se ci sono file di log ed eventualmente rimuovo i file*/
 
       /*  val = inet_aton(argv[1], &addr);  // inet_aton restiuisce l'indirizzo in "addr"*/
+        char *choice, *file_name, *ext_choice, *ext_file_name, *new_choice, *new_file_name;
+
+        choice = (char *)malloc(CHOICE * sizeof(char));
+        if(choice == NULL)
+        {
+           printf("Error while allocating the 'choice' string, closing..\n");
+           exit(1);
+        }
+
+        file_name = (char *)malloc(LENGTH * sizeof(char));
+        if(file_name == NULL)
+        {
+           printf("Error while allocating the 'file_name' string, closing..\n");
+           exit(1);
+        }
+
+        ext_choice = (char *)malloc(CHOICE * sizeof(char));
+        if(ext_choice == NULL)
+        {
+           printf("Error while allocating the 'ext_choice' string, closing..\n");
+           exit(1);
+        }
+
+        ext_file_name = (char *)malloc(LENGTH * sizeof(char));
+        if(ext_file_name == NULL)
+        {
+           printf("Error while allocating the 'ext_file_name' string, closing..\n");
+           exit(1);
+        }
+
+        new_choice = (char *)malloc(CHOICE * sizeof(char));
+        if(new_choice == NULL)
+        {
+           printf("Error while allocating the 'new_choice' string, closing..\n");
+           exit(1);
+        }
+
+        new_file_name = (char *)malloc(LENGTH * sizeof(char));
+        if(new_file_name == NULL)
+        {
+           printf("Error while allocating the 'new_file_name' string, closing..\n");
+           exit(1);
+        }
 
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = PF_INET;
@@ -137,6 +181,7 @@ int main(int argc, char **argv){
 	//s=my_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
         udp_socket *connection = new udp_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+        linked_list *list = new linked_list();
 
 	father_srv.sin_family = AF_INET;
         father_srv.sin_addr = ((struct sockaddr_in*)(results->ai_addr))->sin_addr;
@@ -154,37 +199,38 @@ int main(int argc, char **argv){
 
         printf("Cosa vuoi fare? UP per 'upload', DOWN per 'download', QUIT NOW per terminare un download corrente e ABORT ALL per terminare ogni operazione..\n");
 
-        scanf("%s %s",choice,nome);
+        scanf("%s %s", choice, file_name);
 
         if((strcmp(choice,"ABORT"))==0){
            ////my_close(s);
            exit(1);
         }
 
-        inserisci(&head,&tail,choice,nome);
+        //inserisci(&head,&tail,choice,nome);
+        list->insert(choice, file_name);
 
   while(1){
 
-        empty=vuota(&head);
+        //empty=vuota(&head);
        // printf("VALORE DI EMPTY = %d\n",empty);
        // sleep(5);
-        if(empty==0){ // lista non vuota, posso estrarre
-           estrai(&tail,&head,ext_choice,ext_nome);
+        if(list->is_empty() == 0){ // lista non vuota, posso estrarre
+           list->extract(ext_choice, ext_file_name);
            //print_list(&head);
         }else{ // lista vuota, non estraggo
            //print_list(&head);
-           printf("\nLista dei comandi vuota, impossibile estrarre.\n");
-           printf("Se si desidera svolgere altri trasferimenti digitare\nUP/DOWN seguito da nome file. 'ABORT ALL' per terminare..\n");
+           printf("\nEmpty command list, nothing to extract..\n");
+           printf("Type 'UP' or 'DOWN' followed by the name of the file to transfer. Type 'ABORT ALL' to exit..\n");
 
-           scanf("%s %s",choice,nome);
+           scanf("%s %s", choice, file_name);
            
            if((strcmp(choice,"ABORT"))==0){
               /* se entro qui la lista è vuota, dunque non devo fae nessuna free*/
               ////my_close(s); /* chiusura socket */
               exit(1);
            }else{
-              inserisci(&head,&tail,choice,nome);
-              estrai(&tail,&head,ext_choice,ext_nome);
+              list->insert(choice, file_name);
+              list->extract(ext_choice, ext_file_name);
            }
         }
 
@@ -194,7 +240,7 @@ int main(int argc, char **argv){
 
         if(strcmp(ext_choice,"UP")==0){  // aggiungere codice timeout, perdita pacchetti ecc.
 
-           check_file=access(ext_nome,F_OK);
+           check_file=access(ext_file_name,F_OK);
 
            if(check_file==0){ /* il file è presente */
 
@@ -207,7 +253,7 @@ int main(int argc, char **argv){
 
 	   memset(buf_send,0,sizeof(buf_send));
 
-           sprintf(buf_send,"%s %s",ext_choice,ext_nome);
+           sprintf(buf_send,"%s %s", ext_choice, ext_file_name);
            size=strlen(buf_send);
            buf_send[size]='\0';
    
@@ -215,7 +261,7 @@ int main(int argc, char **argv){
            connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
            //my_sendto(s,buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
 
-           printf("Inviato comando UP.\n");
+           printf("UP command sent..\n");
 
            memset(buf_recv,0,sizeof(buf_recv));
 
@@ -261,18 +307,18 @@ int main(int argc, char **argv){
 
               if((strcmp(buf_recv,"GO"))==0){
                  flag=1; /* abilito il whil3 */
-                 fdR=my_openR(fdR,ext_nome);
-                 printf("Aperto file '%s' in lettura.\n",ext_nome);
+                 fdR=my_openR(fdR, ext_file_name);
+                 printf("File '%s' has been opened in reading mode..\n", ext_file_name);
               }
 
               if((strcmp(buf_recv,"STOP"))==0){
                  flag=0; /* blocco il while*/
-                 printf("Server bloccato, riprovare più tardi.\n");
+                 printf("Server is busy, try again later..\n");
               }
 
            }else{
-             printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
-             free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
+             printf("No answer from the server after 5 minutes, closing..\n");
+             list->free_list(); /* libero la lista allocata perchè il server non mi servirà */
              //my_close(s);
              exit(1);
            }
@@ -282,7 +328,7 @@ int main(int argc, char **argv){
 
 	   while(((size=read(fdR, buf_tmp, BUFLEN))>0) && (flag==1)){  
           
-              sprintf(buf_send,"%s %"PRIu32" %d ",ext_nome,up_seq,size);
+              sprintf(buf_send,"%s %"PRIu32" %d ",ext_file_name, up_seq, size);
               dim=strlen(buf_send);
               memcpy(buf_send+dim,buf_tmp, size); // a questo punto in buf_send ho correttamente il nome del file, il num seq e "size" byte letti/ da inviare
           //    printf("Letto il frammento numero %d.\r\n",up_seq);
@@ -308,7 +354,7 @@ int main(int argc, char **argv){
 
                   if(FD_ISSET(fileno(stdin),&u_cset)){
 
-                     scanf("%s %s",choice,nome);  
+                     scanf("%s %s", choice, file_name);  
                      /*printf("(interfaccia attiva) Scelta = %s --- Nome = %s",choice,nome);*/
 
                      if((strcmp(choice,"ABORT"))==0){
@@ -316,14 +362,15 @@ int main(int argc, char **argv){
                         up_seq=-2;
                         size=0; /* da mettere nel pacchetto affinchè la lettura da parte del server sia corretta*/
 
-                        sprintf(buf_send,"%s %"PRId32" %d ",ext_nome,up_seq,size);
+                        sprintf(buf_send,"%s %"PRId32" %d ",ext_file_name,up_seq,size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
                         
                         connection->send_data(buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
                         //my_sendto(s,buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
 
-                        close_and_quit(fdR, connection->get_fd(), &head);
+                        // the following function must be checked and replaced if needed
+                        //close_and_quit(fdR, connection->get_fd(), &head);
                      }
 
                      if((strcmp(choice,"QUIT"))==0){
@@ -331,7 +378,7 @@ int main(int argc, char **argv){
                         up_seq=-1;
                         size=0; /* da mettere nel pacchetto affinchè la lettura da parte del server sia corretta*/
 
-                        sprintf(buf_send,"%s %"PRId32" %d ",ext_nome,up_seq,size);
+                        sprintf(buf_send,"%s %"PRId32" %d ", ext_file_name, up_seq, size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
 
@@ -345,12 +392,13 @@ int main(int argc, char **argv){
                         break;
                      }
 
-                     inserisci(&head,&tail,choice,nome);      // inserimento in lista
-                     FD_SET(s,&u_cset);
+                     list->insert(choice, file_name);
+                     //inserisci(&head,&tail,choice,nome);      // inserimento in lista
+                     FD_SET(connection->get_fd(),&u_cset);
                      
                   }
 
-		  if(FD_ISSET(s,&u_cset)){
+		  if(FD_ISSET(connection->get_fd(), &u_cset)){
 
                     memset(buf_recv,0,sizeof(buf_recv));
                     //dim2 = my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); // controllo il numero di sequenza
@@ -373,7 +421,7 @@ int main(int argc, char **argv){
                       FD_SET(fileno(stdin),&u_cset);
                      }
                     }else{ // se scatta il timeout senza aver ricevuto risposta reinvio il pacchetto
-                       printf("\nTimeout scaduto: invio ancora il pacchetto %"PRId32". Tentativo [%d]\n",up_seq,tentativi+1);
+                       printf("\nTimeout has expired: send again the packet with ID %"PRId32". Tentativo [%d]\n",up_seq,tentativi+1);
 
                        //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
                        connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
@@ -426,10 +474,10 @@ int main(int argc, char **argv){
                     connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
 
               	    if(strcmp(buf_recv,"OK")==0){
-                       printf("\nFile '%s' inviato correttamente.\n",ext_nome);
+                       printf("\nFile '%s' corrctly sent.\n", ext_file_name);
 	               my_close(fdR);
                     }else{
-                       printf("[%d]Non ho ricevuto risposta positiva dal server, riprovo.\n",prove+1);
+                       printf("[%d]No positive answer from the server, trying again..\n",prove+1);
 
                        //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
                        connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
@@ -437,7 +485,7 @@ int main(int argc, char **argv){
                        prove++;
                     }
                  }else{ // timeout scaduto, invio di nuovo..
-                    printf("[%d]Timeout scaduto: invio ancora pacchetto finale.\n",tentativi+1);
+                    printf("[%d]Timeout over: sending again last packet..\n",tentativi+1);
 
                     //my_sendto(s,buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
                     connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
@@ -449,14 +497,14 @@ int main(int argc, char **argv){
 	  // FD_SET(fileno(stdin), &u_cset);
 
           }else{
-             printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
-             free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
+             printf("No answer from the server after 5 minutes, closing..\n");
+             list->free_list(); /* libero la lista allocata perchè il server non mi servirà */
              //my_close(s);
              exit(1);
           }
 
          }else{ /* file assente nel client */
-            printf("File assente: controllare il nome o riprovare più tardi..\n");
+            printf("The requested file doesn't exist: check the name or try again later..\n");
          }
 
         }else{ // fine if per l'UPLOAD
@@ -472,7 +520,7 @@ int main(int argc, char **argv){
 
            check=0; /* usato per controllare se devo fare abort o no*/
 
-           sprintf(buf_send,"%s %s",ext_choice,ext_nome);
+           sprintf(buf_send,"%s %s",ext_choice,ext_file_name);
            size=strlen(buf_send);
            buf_send[size]='\0';
 
@@ -480,7 +528,7 @@ int main(int argc, char **argv){
            connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
 
 
-           printf("Inviato '%s %s'.\n",ext_choice,ext_nome);
+           printf("Sent '%s %s'.\n", ext_choice, ext_file_name);
 
            FD_ZERO(&d_cset);
 	   FD_SET(fileno(stdin), &d_cset);
@@ -510,7 +558,7 @@ int main(int argc, char **argv){
               prove=0;
               cont=0;
 
-	      printf("File presente sul server..\n");
+	      printf("File doesn't exist on the server..\n");
 
               max_timeout.tv_sec=MAX_TIMEOUT;
 	      max_timeout.tv_usec=0;
@@ -547,19 +595,19 @@ int main(int argc, char **argv){
 
               if((strcmp(buf_recv,"GO"))==0){
                  cont=1; /* abilito il whil3 */
-                 printf("Aperto file '%s' in scrittura.\n",ext_nome);
-                 printf("Ricevo il file '%s'.\n",ext_nome);
-                 create_log(ext_nome,log_name); /* se il file è presente creo il log*/
+                 printf("File '%s' opened in writing mode..\n", ext_file_name);
+                 printf("Riceiving file '%s'..\n", ext_file_name);
+                 create_log(ext_file_name, log_name); /* se il file è presente creo il log*/
               }
 
               if((strcmp(buf_recv,"STOP"))==0){
                  cont=0; /* blocco il while*/
-                 printf("Server bloccato, riprovare più tardi.\n");
+                 printf("Server busy, try again later..\n");
               }
 
            }else{
-             printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
-             free_list(&head); /* libero la lista allocata perchè il server non mi servirà */
+             printf("No answer from the server after 5 minutes, closing..\n");
+             list->free_list(); /* libero la lista allocata perchè il server non mi servirà */
              //my_close(s);
              exit(1);
            }
@@ -570,7 +618,7 @@ int main(int argc, char **argv){
 	      FD_SET(fileno(stdin), &d_cset);
 	      FD_SET(connection->get_fd(), &d_cset);
 
-              fdW=my_openW(fdW,ext_nome); // apertura file in scrittura
+              fdW = my_openW(fdW, ext_file_name); // apertura file in scrittura
 
                do{
 		  check=0;
@@ -589,18 +637,19 @@ int main(int argc, char **argv){
 		  if(select(FD_SETSIZE,&d_cset,NULL,NULL,&timeout)>0){ // se non scatta il timeout ma ricevo dati, ne controllo il numero di sequenza
 
                      if(FD_ISSET(fileno(stdin),&d_cset)){
-                        scanf("%s %s",new_choice,new_nome);
+                        scanf("%s %s", new_choice, new_file_name);
 
                         if((strcmp(new_choice,"QUIT")!=0) && (strcmp(new_choice,"ABORT")!=0)){ // se non ho inserito il comando di terminazione operazioni
                              
                            /*printf("(interfaccia attiva) Scelta = %s --- Nome = %s\n",new_choice,new_nome);*/
-                           inserisci(&head,&tail,new_choice,new_nome);      // inserimento in lista
+                           //inserisci(&head,&tail,new_choice,new_nome);      // inserimento in lista
+                           list->insert(new_choice, new_file_name);
 
                         }else{ // se è inserito QUIT elimino i file e svuoto la lista
 
                            if((strcmp(new_choice,"QUIT"))==0){
                              // my_close(fdW); /* non devo ricevere più, dunque chiudo il fd */
-                              clear(ext_nome); // funzione che riceve il nome del file interrotto
+                              clear(ext_file_name); // funzione che riceve il nome del file interrotto
                               clear(log_name);
 
                               sprintf(buf_send,"%d",-1);
@@ -615,9 +664,9 @@ int main(int argc, char **argv){
 
                               memset(buf_send,0,sizeof(buf_send));
                               memset(buf_recv,0,sizeof(buf_recv));
-                              memset(ext_nome,0,sizeof(ext_nome));
+                              memset(ext_file_name,0,sizeof(ext_file_name));
                               memset(ext_choice,0,sizeof(ext_choice));
-                              memset(nome,0,sizeof(nome));
+                              memset(file_name,0,sizeof(file_name));
                               memset(choice,0,sizeof(choice));
                               fflush(stdin);
                               check=1;
@@ -626,7 +675,7 @@ int main(int argc, char **argv){
 
                            if((strcmp(new_choice,"ABORT"))==0){
 
-                              clear(ext_nome);
+                              clear(ext_file_name);
                               clear(log_name);
 
                               sprintf(buf_send,"%d",-2); /* -1 per QUIT, -2 per ABORT*/
@@ -662,7 +711,7 @@ int main(int argc, char **argv){
 
 //		        printf("Ricevuto frammento %d, atteso %d\n",recv_seq,down_seq);
 
-		        if((strcmp(recv_file,ext_nome)==0) && (down_seq==recv_seq)){
+		        if((strcmp(recv_file,ext_file_name)==0) && (down_seq==recv_seq)){
 
 		       	   if(write(fdW,recv_data,recv_bytes)!=recv_bytes){  
 		              printf("Errore scrittura dati.\n");
@@ -682,8 +731,8 @@ int main(int argc, char **argv){
 
 		    	}else{  // numeri di sequenza diversi: richiedo il frammento giusto
 		           /*sleep(1);*/
-		           printf("[%d]Errore!  Seq attesa: (%"PRId32") - ricevuta (%"PRId32")..\n",down_seq,recv_seq,prove+1);
-                           printf("FILE ATTESO: %s -- RICEVUTO: %s",ext_nome,recv_file);
+		           printf("[%d]Error! Expected seq. number : (%"PRId32") - received (%"PRId32")..\n",down_seq,recv_seq,prove+1);
+                           printf("Expected file : %s -- received: %s", ext_file_name,recv_file);
                            memset(buf_send,0,sizeof(buf_send));
                            buf_send[0]='\0';
 		           sprintf(buf_send,"%"PRId32"",down_seq);
@@ -696,11 +745,11 @@ int main(int argc, char **argv){
 			   prove++;
 
                            if(prove==3){
-                              printf("Ho ricevuto 3 volte la sequenza sbagliata e non quella giusta: cancello il file.\n");
+                              printf("Received 3 wrong sequence numbers: deleting the file..\n");
                               check=1;
                               my_close(fdW);
                               clear(log_name); /* elimino il file di log */
-                              clear(ext_nome);
+                              clear(ext_file_name);
                               break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                            }
 		        }
@@ -709,18 +758,18 @@ int main(int argc, char **argv){
                      }
 
 		  }else{ // timeout scaduto
-		     printf("[%d]Timeout scaduto - frammento non ricevuto.\n",tentativi+1);
+		     printf("[%d]Timeout expired - packet not received..\n",tentativi+1);
 
 		     //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
                      connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
                      tentativi++;
                    
                      if(tentativi==3){ /* esco dal ciclo, chiudo fd, rimuovo log e file incompleto */
-                        printf("Dopo 3 tentativi di ricezione del numero di sequenza, non ci sono riuscito: cancello il file.\n");
+                        printf("Received 3 wrong sequence number: deleting the file..\n");
                         check=1;
                         my_close(fdW);
                         clear(log_name); /* elimino il file di log se tutto va bene */
-                        clear(ext_nome);
+                        clear(ext_file_name);
                         break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                      }
 		  }     
@@ -738,27 +787,27 @@ int main(int argc, char **argv){
 
                   my_close(fdW);
                   clear(log_name); /* elimino il file di log se tutto va bene */
-                  printf("\nFile '%s' ricevuto con successo.\n",ext_nome);
-                  printf("Chiusura file descriptor.\n\n");
+                  printf("\nFile '%s' has been received correctly..\n",ext_file_name);
+                  printf("Closing file descriptor..\n\n");
                }
 
               } /* fine if sul valore di flag*/
 
              }else{
-               printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
-               free_list(&head);
+               printf("No answer from the server after 5 minutes, closing..\n");
+               list->free_list();
                //my_close(s);
                exit(1);
              }
                
             }else{ /* else attivo se sul server non c'è il file richiesto*/
-               printf("File '%s' non presente sul server, riprovare più tardi..\n",ext_nome);
+               printf("File '%s' not stored on the server, try again later..\n", ext_file_name);
                /*printf("BUF_RECV: %s\n\n",buf_recv);*/
             }
 
           }else{
-             printf("Nessuna risposta dal server dopo 5 minuti, chiudo socket ed esco..\n");
-             free_list(&head);
+             printf("No answer from the server after 5 minutes, closing..\n");
+             list->free_list();
              //my_close(s);
              exit(1);
           }
@@ -875,87 +924,4 @@ void clear(char *nome_file){
    }else{
       printf("File '%s' eliminato correttamente.\n",nome_file);
    }
-}
-
-richiesta_ptr nuova(char *scelta,char *nome){
-   
-   richiesta_ptr nuovo=NULL;
-
-   nuovo= (richiesta_ptr) malloc(sizeof(richiesta));
-
-   if(nuovo==NULL){
-      printf("Errore allocazione nodo lista.\n");
-      exit(1);
-   }
-
-   strcpy(nuovo->scelta,scelta);
-   strcpy(nuovo->nome_file,nome);
-   nuovo->next=NULL;
-
-   return(nuovo);
-}
-
-int vuota(richiesta_ptr *head){
-
-   richiesta_ptr tmp=*head;
-
-   if(tmp==NULL){
-      return(1); // 1 se la lista è vuota
-   }else{
-      return(0);  // 0 se la lista non è vuota
-   }
-}
-
-void estrai(richiesta_ptr *tail,richiesta_ptr *head,char *scelta,char *nome){
-
-     richiesta_ptr tmp;
-
-     if((*head)!=NULL){
-        strcpy(scelta,(*head)->scelta);
-        strcpy(nome,(*head)->nome_file);
-
-        tmp=*head;
-        *head=(*head)->next;
-     }else{
-        *tail=NULL;
-        //printf("Lista dei comandi vuota, impossibile estrarre..\n");
-     }
-     free(tmp);
-}
-
-void print_list(richiesta_ptr *head){
-
-   while((*head)!=NULL){
-       printf("ANCORA PRESENTE: %s %s\n",(*head)->scelta,(*head)->nome_file);
-      *head=(*head)->next;
-   }
-if((*head)==NULL){
-   printf("LISTA VUOTA !!!!!!!!!!!!!!!!!!!!");}
-}
-
-void free_list(richiesta_ptr *head){
-
-   richiesta_ptr tmp;
-
-   while((*head)!=NULL){
-      tmp=*head;
-      *head=(*head)->next;
-
-      free(tmp);
-   }
-}
-
-void inserisci(richiesta_ptr *head,richiesta_ptr *tail,char *choice,char *nome){
-
-   richiesta_ptr nuovo;
-
-   nuovo=nuova(choice,nome);
-
-   if((*head)==NULL){
-      *head=nuovo;
-   }else{
-      (*tail)->next=nuovo;
-   }
-
-   *tail=nuovo;
 }
