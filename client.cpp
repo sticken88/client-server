@@ -25,9 +25,9 @@
 #include <stdint.h>
 #include <signal.h>
 
-#include "udp_socket.h"
-#include "linked_list.h"
-#include "log_manager.h"
+#include "./socket/udp_socket.h"
+#include "./list/linked_list.h"
+#include "./log/log_manager.h"
 
 #define SA struct sockaddr
 
@@ -49,8 +49,8 @@ void clear(char *nome_file);
 //void close_and_quit(int fd, int s, richiesta_ptr *head);
 
 /* funzioni per la gestione del file di log */
-void create_log(char *file,char *log_name);
-void check_log(void);
+/*void create_log(char *file,char *log_name);
+void check_log(void);*/
 
 int main(int argc, char **argv){
 
@@ -76,7 +76,7 @@ int main(int argc, char **argv){
 	int empty,ret,check_file,dim2,flag,cont,check_port; /* sarà riempito dal server*/
 	int size,dim,recv_bytes,new_port,check,tentativi,prove; /* n byte letti da rcvfrom*/
 
-        int32_t up_seq,down_seq,recv_seq; 
+        unsigned long int up_seq, down_seq, recv_seq; 
 
 	socklen_t father_srvlen = sizeof(father_srv);
         socklen_t child_srvlen = sizeof(child_srv);
@@ -93,14 +93,15 @@ int main(int argc, char **argv){
            exit(1);
         }
 
+        log_manager *log = new log_manager();
+        log->check_log(); // check whether there are log files to remove
+
         check_port=atoi(argv[2]);
 
         if((check_port<0)||((check_port>=0)&&(check_port<=1023))){
            printf("Errore: numero di porta non consentito (deve essere maggiore di 1023).\n");
            exit(1);
         }
-
-        check_log(); /* controllo se ci sono file di log ed eventualmente rimuovo i file*/
 
       /*  val = inet_aton(argv[1], &addr);  // inet_aton restiuisce l'indirizzo in "addr"*/
         char *choice, *file_name, *ext_choice, *ext_file_name, *new_choice, *new_file_name;
@@ -154,7 +155,7 @@ int main(int argc, char **argv){
 
 	//s=my_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
-        udp_socket *connection = new udp_socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+        udp_socket *connection = new udp_socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
         linked_list *list = new linked_list();
 
 	father_srv.sin_family = AF_INET;
@@ -302,7 +303,7 @@ int main(int argc, char **argv){
 
 	   while(((size=read(fdR, buf_tmp, BUFLEN))>0) && (flag==1)){  
           
-              sprintf(buf_send,"%s %"PRIu32" %d ",ext_file_name, up_seq, size);
+              sprintf(buf_send,"%s %lu %d ",ext_file_name, up_seq, size);
               dim=strlen(buf_send);
               memcpy(buf_send+dim,buf_tmp, size); // a questo punto in buf_send ho correttamente il nome del file, il num seq e "size" byte letti/ da inviare
           //    printf("Letto il frammento numero %d.\r\n",up_seq);
@@ -336,7 +337,7 @@ int main(int argc, char **argv){
                         up_seq=-2;
                         size=0; /* da mettere nel pacchetto affinchè la lettura da parte del server sia corretta*/
 
-                        sprintf(buf_send,"%s %"PRId32" %d ",ext_file_name,up_seq,size);
+                        sprintf(buf_send,"%s %lu %d ",ext_file_name,up_seq,size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
                         
@@ -352,7 +353,7 @@ int main(int argc, char **argv){
                         up_seq=-1;
                         size=0; /* da mettere nel pacchetto affinchè la lettura da parte del server sia corretta*/
 
-                        sprintf(buf_send,"%s %"PRId32" %d ", ext_file_name, up_seq, size);
+                        sprintf(buf_send,"%s %lu %d ", ext_file_name, up_seq, size);
                         dim=strlen(buf_send);
                         buf_send[dim]='\0';
 
@@ -379,10 +380,10 @@ int main(int argc, char **argv){
                     dim2 = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
                     buf_recv[dim2]='\0';
 
-                    sscanf(buf_recv,"%"SCNu32"",&recv_seq);
+                    sscanf(buf_recv,"%lu",&recv_seq);
                     /*printf("Ricevuto ack %"PRId32"\n",recv_seq);*/
                        if(up_seq!=recv_seq){
-                         printf("\n corrente: %"PRId32" - ricevuto: %"PRId32"",up_seq,recv_seq);
+                         printf("\n corrente: %lu - ricevuto: %lu",up_seq,recv_seq);
 
                          //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
                          connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
@@ -395,7 +396,7 @@ int main(int argc, char **argv){
                       FD_SET(fileno(stdin),&u_cset);
                      }
                     }else{ // se scatta il timeout senza aver ricevuto risposta reinvio il pacchetto
-                       printf("\nTimeout has expired: send again the packet with ID %"PRId32". Tentativo [%d]\n",up_seq,tentativi+1);
+                       printf("\nTimeout has expired: send again the packet with ID %lu. Tentativo [%d]\n",up_seq,tentativi+1);
 
                        //my_sendto(s,buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
                        connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
@@ -571,7 +572,7 @@ int main(int argc, char **argv){
                  cont=1; /* abilito il whil3 */
                  printf("File '%s' opened in writing mode..\n", ext_file_name);
                  printf("Riceiving file '%s'..\n", ext_file_name);
-                 create_log(ext_file_name, log_name); /* se il file è presente creo il log*/
+                 log->create_log(ext_file_name, log_name); /* se il file è presente creo il log*/
               }
 
               if((strcmp(buf_recv,"STOP"))==0){
@@ -624,7 +625,7 @@ int main(int argc, char **argv){
                            if((strcmp(new_choice,"QUIT"))==0){
                              // my_close(fdW); /* non devo ricevere più, dunque chiudo il fd */
                               clear(ext_file_name); // funzione che riceve il nome del file interrotto
-                              clear(log_name);
+                              log->remove_file(log_name);
 
                               sprintf(buf_send,"%d",-1);
                               size=strlen(buf_send);
@@ -650,9 +651,9 @@ int main(int argc, char **argv){
                            if((strcmp(new_choice,"ABORT"))==0){
 
                               clear(ext_file_name);
-                              clear(log_name);
+                              log->remove_file(log_name);
 
-                              sprintf(buf_send,"%d",-2); /* -1 per QUIT, -2 per ABORT*/
+                              sprintf(buf_send,"%d", -2); /* -1 per QUIT, -2 per ABORT*/
                               size=strlen(buf_send);
                               buf_send[size]='\0';
 
@@ -678,7 +679,7 @@ int main(int argc, char **argv){
 
 		          // se ricevo dati controllo numero di sequenza e file e poi scrivo se è il caso
 		        memset(recv_data,0,sizeof(recv_data));
-		        sscanf(buf_recv,"%s %"SCNd32" %d",recv_file,&recv_seq,&recv_bytes);
+		        sscanf(buf_recv,"%s %lu %d",recv_file,&recv_seq,&recv_bytes);
 		        dim=size-recv_bytes;
 
 		        memcpy(recv_data,buf_recv+dim,recv_bytes);
@@ -692,7 +693,7 @@ int main(int argc, char **argv){
 		              exit(1);
 		           }
 				// invio ACK
-		           sprintf(send_ack,"%"PRId32"",down_seq);
+		           sprintf(send_ack,"%lu",down_seq);
 		           dim=strlen(send_ack);
 		           send_ack[dim]='\0';
                             // printf("ACK inviato = %s\n",send_ack);
@@ -705,11 +706,11 @@ int main(int argc, char **argv){
 
 		    	}else{  // numeri di sequenza diversi: richiedo il frammento giusto
 		           /*sleep(1);*/
-		           printf("[%d]Error! Expected seq. number : (%"PRId32") - received (%"PRId32")..\n",down_seq,recv_seq,prove+1);
+		           printf("[%d]Error! Expected seq. number : (%lu) - received (%lu)..\n",prove+1, down_seq,recv_seq);
                            printf("Expected file : %s -- received: %s", ext_file_name,recv_file);
                            memset(buf_send,0,sizeof(buf_send));
                            buf_send[0]='\0';
-		           sprintf(buf_send,"%"PRId32"",down_seq);
+		           sprintf(buf_send,"%lu",down_seq);
 		           dim=strlen(buf_send);
                            buf_send[dim]='\0';
 
@@ -722,7 +723,7 @@ int main(int argc, char **argv){
                               printf("Received 3 wrong sequence numbers: deleting the file..\n");
                               check=1;
                               my_close(fdW);
-                              clear(log_name); /* elimino il file di log */
+                              log->remove_file(log_name); /* elimino il file di log */
                               clear(ext_file_name);
                               break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                            }
@@ -742,7 +743,7 @@ int main(int argc, char **argv){
                         printf("Received 3 wrong sequence number: deleting the file..\n");
                         check=1;
                         my_close(fdW);
-                        clear(log_name); /* elimino il file di log se tutto va bene */
+                        log->remove_file(log_name); /* elimino il file di log se tutto va bene */
                         clear(ext_file_name);
                         break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                      }
@@ -760,7 +761,7 @@ int main(int argc, char **argv){
                   connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
                   my_close(fdW);
-                  clear(log_name); /* elimino il file di log se tutto va bene */
+                  log->remove_file(log_name); /* elimino il file di log se tutto va bene */
                   printf("\nFile '%s' has been received correctly..\n",ext_file_name);
                   printf("Closing file descriptor..\n\n");
                }
@@ -804,7 +805,7 @@ return(0);
    exit(1);
 }*/
 
-void create_log(char *file,char *log_name){
+/*void create_log(char *file,char *log_name){
 
    int dim;
    FILE *log_ptr;
@@ -813,7 +814,7 @@ void create_log(char *file,char *log_name){
    dim=strlen(log_name);
    log_name[dim]='\0';
 
-   if((log_ptr=fopen(log_name,"w+"))==NULL){ /* creo il file di log */
+   if((log_ptr=fopen(log_name,"w+"))==NULL){ //  creo il file di log 
          printf("Errore apertura file di log '%s' in scrittura.\n",log_name);
          printf("Termino le operazioni.\n");
          return;
@@ -839,9 +840,9 @@ void check_log(void){
 
    while((visit=readdir(dirP))!=NULL){
       dim=strlen(visit->d_name);
-      dim_nome=dim-4; /* 4 caratteri pari a ".log" */
+      dim_nome=dim-4; // 4 caratteri pari a ".log" 
 
-      if((strncmp((visit->d_name)+dim_nome,".log",4))==0){  /* se ha estensione .log, apro, leggo ed elimino il file*/
+      if((strncmp((visit->d_name)+dim_nome,".log",4))==0){  // se ha estensione .log, apro, leggo ed elimino il file
 
          if((log=fopen(visit->d_name,"r"))==NULL){
             printf("Errore apertura file di log '%s' in lettura.\n",visit->d_name);
@@ -863,7 +864,7 @@ void check_log(void){
       printf("Errore chiusura cartella '%s'.\n",CDIR);
    }
 
-}
+}*/
 
 void clear(char *nome_file){
 
