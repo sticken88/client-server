@@ -442,7 +442,7 @@ int main(int argc, char **argv){
 
               	    if(strcmp(buf_recv,"OK")==0){
                        printf("\nFile '%s' corrctly sent.\n", ext_file_name);
-	               fd->close_file(fdR);
+	               fd->close_file(&fdR);
                     }else{
                        printf("[%d]No positive answer from the server, trying again..\n",prove+1);
 
@@ -617,7 +617,7 @@ int main(int argc, char **argv){
 
                            if((strcmp(new_choice,"QUIT"))==0){
                              // my_close(fdW); /* non devo ricevere più, dunque chiudo il fd */
-                              clear(ext_file_name); // funzione che riceve il nome del file interrotto
+                              fd->remove_file(ext_file_name); // funzione che riceve il nome del file interrotto
                               log->remove_file(log_name);
 
                               sprintf(buf_send,"%d",-1);
@@ -643,7 +643,7 @@ int main(int argc, char **argv){
 
                            if((strcmp(new_choice,"ABORT"))==0){
 
-                              clear(ext_file_name);
+                              fd->remove_file(ext_file_name);
                               log->remove_file(log_name);
 
                               sprintf(buf_send,"%d", -2); /* -1 per QUIT, -2 per ABORT*/
@@ -715,7 +715,7 @@ int main(int argc, char **argv){
                            if(prove==3){
                               printf("Received 3 wrong sequence numbers: deleting the file..\n");
                               check=1;
-                              fd->close_file(fdW);
+                              fd->close_file(&fdW);
                               log->remove_file(log_name); /* elimino il file di log */
                               fd->remove_file(ext_file_name);
                               break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
@@ -735,7 +735,7 @@ int main(int argc, char **argv){
                      if(tentativi==3){ /* esco dal ciclo, chiudo fd, rimuovo log e file incompleto */
                         printf("Received 3 wrong sequence number: deleting the file..\n");
                         check=1;
-                        fd->close_file(fdW);
+                        fd->close_file(&fdW);
                         log->remove_file(log_name); /* elimino il file di log se tutto va bene */
                         fd->remove_file(ext_file_name);
                         break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
@@ -753,7 +753,7 @@ int main(int argc, char **argv){
                   //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen); // invio 0 byte da leggere
                   connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
-                  fd->close_file(fdW);
+                  fd->close_file(&fdW);
                   log->remove_file(log_name); /* elimino il file di log se tutto va bene */
                   printf("\nFile '%s' has been received correctly..\n",ext_file_name);
                   printf("Closing file descriptor..\n\n");
