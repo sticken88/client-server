@@ -1,5 +1,5 @@
-#ifndef __UDP_SOCKET_H_
-#define __UDP_SOCKET_H_
+#ifndef __FD_MANAGER_H_
+#define __FD_MANAGER_H_
 
 #include <stdio.h>
 #include <unistd.h>
