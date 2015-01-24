@@ -28,8 +28,7 @@
 #include "./socket/udp_socket.h"
 #include "./list/linked_list.h"
 #include "./log/log_manager.h"
-
-#define SA struct sockaddr
+#include "./fd/fd_manager.h"
 
 #define BUFLEN 1000
 #define MAX_DIM 1200
@@ -40,17 +39,7 @@
 #define MAX_TIMEOUT 300
 
 extern int errno;
-
-int my_openR(int fd, char *nome);
-int my_openW(int fd, char *nome);
-void my_close(int fd);
-
-void clear(char *nome_file);
 //void close_and_quit(int fd, int s, richiesta_ptr *head);
-
-/* funzioni per la gestione del file di log */
-/*void create_log(char *file,char *log_name);
-void check_log(void);*/
 
 int main(int argc, char **argv){
 
@@ -93,6 +82,8 @@ int main(int argc, char **argv){
            exit(1);
         }
 
+        fd_manager *fd = new fd_manager();   
+ 
         log_manager *log = new log_manager();
         log->check_log(); // check whether there are log files to remove
 
@@ -282,7 +273,8 @@ int main(int argc, char **argv){
 
               if((strcmp(buf_recv,"GO"))==0){
                  flag=1; /* abilito il whil3 */
-                 fdR=my_openR(fdR, ext_file_name);
+                 //fdR=my_openR(fdR, ext_file_name);
+                 fd->open_read(&fdR, ext_file_name);
                  printf("File '%s' has been opened in reading mode..\n", ext_file_name);
               }
 
@@ -363,7 +355,7 @@ int main(int argc, char **argv){
                         connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
                         //my_recvfrom(s,buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen); /* ricevo ack e non lo controllo */
 
-                        my_close(fdR); /* chiudo soltanto il file descriptor e posso ancora fare altre operazioni: non libero lista e non chiudo socket*/
+                        fd->close_file(&fdR);/* chiudo soltanto il file descriptor e posso ancora fare altre operazioni: non libero lista e non chiudo socket*/
                         break;
                      }
 
@@ -450,7 +442,7 @@ int main(int argc, char **argv){
 
               	    if(strcmp(buf_recv,"OK")==0){
                        printf("\nFile '%s' corrctly sent.\n", ext_file_name);
-	               my_close(fdR);
+	               fd->close_file(fdR);
                     }else{
                        printf("[%d]No positive answer from the server, trying again..\n",prove+1);
 
@@ -593,7 +585,8 @@ int main(int argc, char **argv){
 	      FD_SET(fileno(stdin), &d_cset);
 	      FD_SET(connection->get_fd(), &d_cset);
 
-              fdW = my_openW(fdW, ext_file_name); // apertura file in scrittura
+              //fdW = my_openW(fdW, ext_file_name); // apertura file in scrittura
+              fd->open_write(&fdW, ext_file_name);
 
                do{
 		  check=0;
@@ -722,9 +715,9 @@ int main(int argc, char **argv){
                            if(prove==3){
                               printf("Received 3 wrong sequence numbers: deleting the file..\n");
                               check=1;
-                              my_close(fdW);
+                              fd->close_file(fdW);
                               log->remove_file(log_name); /* elimino il file di log */
-                              clear(ext_file_name);
+                              fd->remove_file(ext_file_name);
                               break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                            }
 		        }
@@ -742,9 +735,9 @@ int main(int argc, char **argv){
                      if(tentativi==3){ /* esco dal ciclo, chiudo fd, rimuovo log e file incompleto */
                         printf("Received 3 wrong sequence number: deleting the file..\n");
                         check=1;
-                        my_close(fdW);
+                        fd->close_file(fdW);
                         log->remove_file(log_name); /* elimino il file di log se tutto va bene */
-                        clear(ext_file_name);
+                        fd->remove_file(ext_file_name);
                         break;  /* forzo l'uscita dal ciclo di ricezione file e impedisco l'invio del paccketto finale*/
                      }
 		  }     
@@ -760,7 +753,7 @@ int main(int argc, char **argv){
                   //my_sendto(s,buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen); // invio 0 byte da leggere
                   connection->send_data(buf_send,dim,0,(struct sockaddr*)&child_srv,child_srvlen);
 
-                  my_close(fdW);
+                  fd->close_file(fdW);
                   log->remove_file(log_name); /* elimino il file di log se tutto va bene */
                   printf("\nFile '%s' has been received correctly..\n",ext_file_name);
                   printf("Closing file descriptor..\n\n");
@@ -793,110 +786,4 @@ int main(int argc, char **argv){
       //my_close(s);
 
 return(0);
-}
-
-/*void close_and_quit(int fd,int s,richiesta_ptr *head){
-   
-   my_close(fd);
-   //my_close(s);
-
-   free_list(head);
-  
-   exit(1);
-}*/
-
-/*void create_log(char *file,char *log_name){
-
-   int dim;
-   FILE *log_ptr;
-
-   sprintf(log_name,"%s%s",file,LOG_EXT);
-   dim=strlen(log_name);
-   log_name[dim]='\0';
-
-   if((log_ptr=fopen(log_name,"w+"))==NULL){ //  creo il file di log 
-         printf("Errore apertura file di log '%s' in scrittura.\n",log_name);
-         printf("Termino le operazioni.\n");
-         return;
-   }
-
-   fprintf(log_ptr,"%s",file);
-   
-   fclose(log_ptr);
-}
-
-void check_log(void){
-
-   int dim,dim_nome;
-   DIR *dirP;
-   struct dirent *visit;
-   char trash[MAX_CHAR]; 
-   FILE *log;
-
-   if((dirP=opendir(CDIR))==NULL){
-      printf("Apertura errata del direttorio '%s'.\n",CDIR);
-      return;
-   }
-
-   while((visit=readdir(dirP))!=NULL){
-      dim=strlen(visit->d_name);
-      dim_nome=dim-4; // 4 caratteri pari a ".log" 
-
-      if((strncmp((visit->d_name)+dim_nome,".log",4))==0){  // se ha estensione .log, apro, leggo ed elimino il file
-
-         if((log=fopen(visit->d_name,"r"))==NULL){
-            printf("Errore apertura file di log '%s' in lettura.\n",visit->d_name);
-            return;
-         }
-
-         fscanf(log,"%s",trash);
-
-         if((fclose(log))!=0){
-            printf("Errore chiusura file '%s'.\n",visit->d_name);
-         }
-
-         clear(trash);
-         clear(visit->d_name);
-      }
-   }
-
-   if((closedir(dirP))==-1){
-      printf("Errore chiusura cartella '%s'.\n",CDIR);
-   }
-
-}*/
-
-void clear(char *nome_file){
-
-   if((remove(nome_file))==-1){
-      printf("Errore eliminazione file '%s'.\n",nome_file);
-   }else{
-      printf("File '%s' eliminato correttamente.\n",nome_file);
-   }
-}
-
-int my_openR(int fd, char *nome){
-
-   if((fd=open(nome, O_RDONLY))<0){
-      printf("Errore apertura file in lettura.\n");
-      exit(1);
-   }
-   return(fd);
-}
-
-int my_openW(int fd, char *nome){
-
-   if((fd=open(nome,O_WRONLY | O_CREAT | O_TRUNC,S_IRUSR | S_IWUSR))<0){
-      printf("Errore apertura file in lettura.\n");
-      exit(1);
-   }
-   return(fd);
-}
-
-void my_close(int fd){
-
-   if(close(fd)<0){
-      printf("Errore chiusura file descriptor.\n");
-      return;
-   }
 }
