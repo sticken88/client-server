@@ -17,18 +17,17 @@ void node::set_next(node *next_node){
 }
 
 node::node(char *choice, char *file_name){
+
    this->choice = (char *)malloc(CHOICE * sizeof(char));
-   if(this->choice == NULL)
-   {
+   if(this->choice == NULL){
       printf("Error while allocating memory for 'choice', closing..\n");
       exit(1);
    }
 
-   strcpy(this->file_name, file_name);
+   strcpy(this->choice, choice);
 
    this->file_name = (char *)malloc(LENGTH * sizeof(char));
-   if(this->file_name == NULL)
-   {
+   if(this->file_name == NULL){
       printf("Error while allocating memory for 'choice', closing..\n");
       exit(1);
    }
