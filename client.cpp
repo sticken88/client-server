@@ -165,7 +165,7 @@ int main(int argc, char **argv){
 
 
    while(1){
-    
+
       /*
        * Extract the next command from the list
        */
@@ -194,7 +194,6 @@ int main(int argc, char **argv){
 
       if(strcmp(ext_choice,"UP")==0){  // aggiungere codice timeout, perdita pacchetti ecc.
          upload_file(connection, list, fd, father_srv, ext_file_name);
-
       }else{ 
          printf("Download function needs to be refactore. Only ipload is available\n");
       }
@@ -216,16 +215,20 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
    int new_port, recv_bytes, fdR, flag, size, tentativi, prove;
    unsigned long int up_seq, recv_seq;
 
+   father_srvlen = sizeof(father_srv);
+   child_srvlen = sizeof(child_srv);
+
    /*
     * Added just to compile the code
     */
   char buf_send[BUFLEN], buf_recv[BUFLEN];
   int dim, dim2, check_file;
-  check_file=access(file_name,F_OK);
   char buf_tmp[BUFLEN];
 
 
-           if(check_file==0){ //
+  check_file=access(file_name,F_OK);
+
+           if(check_file==0){
            up_seq=0;
            flag=1;
 
@@ -238,7 +241,8 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
            size=strlen(buf_send);
            buf_send[size]='\0';
 
-           connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv, father_srvlen);
+           connection->send_data(buf_send, size, 0, (struct sockaddr *)&father_srv, father_srvlen);
+          printf("Ci arrivo\n");
 
            memset(buf_recv,0,sizeof(buf_recv));
 
