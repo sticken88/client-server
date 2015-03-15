@@ -5,16 +5,15 @@ void linked_list::insert(char *choice, char *file_name){
    node *new_node;
 
    new_node = new node(choice, file_name);
-
-   if(head == NULL)
-   {
+   printf("Node created\n");
+   if(head == NULL){
       head = new_node;
-   }else
-   {
+   }else{
       tail->set_next(new_node);
    }
 
    tail = new_node;
+   printf("Inserito\n");
 }
 
 void linked_list::extract(char *choice, char *file_name){
