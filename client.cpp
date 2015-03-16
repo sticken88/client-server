@@ -226,7 +226,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
   char buf_tmp[BUFLEN];
 
 
-  check_file=access(file_name,F_OK);
+  check_file=access(file_name, F_OK);
 
            if(check_file==0){
            up_seq=0;
@@ -236,58 +236,56 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
      FD_SET(fileno(stdin), &u_cset);
      FD_SET(connection->get_fd(), &u_cset);
 
-     memset(buf_send,0,sizeof(buf_send));
-           sprintf(buf_send,"%s %s", choice, file_name);
-           size=strlen(buf_send);
-           buf_send[size]='\0';
+     memset(send_buffer, 0, sizeof(send_buffer));
+           sprintf(send_buffer,"%s %s", choice, file_name);
+           size = strlen(send_buffer);
+           send_buffer[size]='\0';
 
-           connection->send_data(buf_send, size, 0, (struct sockaddr *)&father_srv, father_srvlen);
-          printf("Ci arrivo\n");
+           connection->send_data(send_buffer, size, 0, (struct sockaddr *)&father_srv, father_srvlen);
 
-           memset(buf_recv,0,sizeof(buf_recv));
+           memset(receive_buffer, 0, sizeof(receive_buffer));
 
-           max_timeout.tv_sec=MAX_TIMEOUT;
-     max_timeout.tv_usec=0;
+           max_timeout.tv_sec = MAX_TIMEOUT;
+           max_timeout.tv_usec = 0;
 
-           if(select(FD_SETSIZE,&u_cset,NULL,NULL,&max_timeout)>0){ // wait for 5 minutes max
-           max_timeout.tv_sec=MAX_TIMEOUT;
-     max_timeout.tv_usec=0;
+           if(select(FD_SETSIZE, &u_cset, NULL, NULL, &max_timeout) > 0){ // wait for 5 minutes max
+              max_timeout.tv_sec=MAX_TIMEOUT;
+              max_timeout.tv_usec=0;
 
-           FD_ZERO(&u_cset);
-     FD_SET(fileno(stdin), &u_cset);
-     FD_SET(connection->get_fd(), &u_cset);
-
-           connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&father_srvlen);           
-           new_port=atoi(buf_recv);
-
-     child_srv.sin_family = AF_INET; // address family IPv4
-           child_srv.sin_addr = father_srv.sin_addr;
-           child_srv.sin_port = htons(new_port);
-
-           memset(buf_send,0,sizeof(buf_send));
-           sprintf(buf_send,"POSSO ?");
-           dim2=strlen(buf_send);
-           buf_send[dim2]='\0';
-
-
-           connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
-           memset(buf_send,0,sizeof(buf_send));
-
-           if(select(FD_SETSIZE,&u_cset,NULL,NULL,&max_timeout)>0){
               FD_ZERO(&u_cset);
-        FD_SET(fileno(stdin), &u_cset);
-        FD_SET(connection->get_fd(), &u_cset);
+              FD_SET(fileno(stdin), &u_cset);
+              FD_SET(connection->get_fd(), &u_cset);
+
+              connection->recv_data(receive_buffer, BUFLEN, 0, (struct sockaddr*)&father_srv, &father_srvlen);           
+              new_port = atoi(receive_buffer);
+
+              child_srv.sin_family = AF_INET; // address family IPv4
+              child_srv.sin_addr = father_srv.sin_addr;
+              child_srv.sin_port = htons(new_port);
+
+              memset(send_buffer, 0, sizeof(send_buffer));
+              sprintf(send_buffer, "POSSO ?");
+              dim2 = strlen(send_buffer);
+              send_buffer[dim2] = '\0';
+
+              connection->send_data(send_buffer, size, 0, (struct sockaddr *)&child_srv, child_srvlen);
+              memset(send_buffer, 0, sizeof(send_buffer));
+
+           if(select(FD_SETSIZE, &u_cset, NULL, NULL, &max_timeout) > 0){
+              FD_ZERO(&u_cset);
+              FD_SET(fileno(stdin), &u_cset);
+              FD_SET(connection->get_fd(), &u_cset);
 
 
-              int _dim = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&child_srv,&child_srvlen);
-              buf_recv[_dim] = '\0';
-              if((strcmp(buf_recv,"GO"))==0){
+              int len = connection->recv_data(receive_buffer, BUFLEN, 0, (struct sockaddr*) &child_srv, &child_srvlen);
+              receive_buffer[len] = '\0';
+              if((strcmp(receive_buffer,"GO"))==0){
                  flag=1; 
                  fd->open_read(&fdR, file_name);
                  printf("File '%s' has been opened in reading mode..\n", file_name);
               }
 
-              if((strcmp(buf_recv,"STOP"))==0){
+              if((strcmp(receive_buffer,"STOP"))==0){
                  flag=0; // while not enabled 
                  printf("Server is busy, try again later..\n");
               }
@@ -298,16 +296,16 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
              exit(1);
            }
 
-           memset(buf_send,0,sizeof(buf_send));
-           memset(buf_tmp,0,sizeof(buf_tmp));
+           memset(send_buffer, 0, sizeof(send_buffer));
+           memset(buf_tmp, 0, sizeof(buf_tmp));
 
      while(((size=read(fdR, buf_tmp, BUFLEN))>0) && (flag==1)){  
           
-              sprintf(buf_send,"%s %lu %d ", file_name, up_seq, size);
-              dim=strlen(buf_send);
-              memcpy(buf_send+dim,buf_tmp, size); // it will contain the name of th file, sequence number and "size" read byte
+              sprintf(send_buffer,"%s %lu %d ", file_name, up_seq, size);
+              dim = strlen(send_buffer);
+              memcpy(send_buffer + dim, buf_tmp, size); // it will contain the name of th file, sequence number and "size" read byte
 
-              connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+              connection->send_data(send_buffer, (dim+size), 0, (struct sockaddr *) &child_srv, child_srvlen);
               printf("Data sent..\n");
 
               // check sequence number until the sequence numbers are not equal
@@ -322,36 +320,36 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
            FD_SET(fileno(stdin), &u_cset);
            FD_SET(connection->get_fd(), &u_cset);
 
-                 if(select(FD_SETSIZE,&u_cset,NULL,NULL,&timeout)>0){
+                 if(select(FD_SETSIZE, &u_cset, NULL, NULL, &timeout)>0){
 
-                  if(FD_ISSET(fileno(stdin),&u_cset)){
+                  if(FD_ISSET(fileno(stdin), &u_cset)){
 
                      scanf("%s %s", choice, file_name);  
 
-                     if((strcmp(choice,"ABORT"))==0){
+                     if(strcmp(choice,"ABORT") == 0){
 
                         up_seq=-2;
                         size=0; // put it in the packet so that the server can read properly
 
-                        sprintf(buf_send,"%s %lu %d ", file_name,up_seq,size);
-                        dim=strlen(buf_send);
-                        buf_send[dim]='\0';
+                        sprintf(send_buffer, "%s %lu %d ", file_name, up_seq, size);
+                        dim = strlen(send_buffer);
+                        send_buffer[dim]='\0';
                         
-                        connection->send_data(buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+                        connection->send_data(send_buffer, dim, 0, (struct sockaddr *) &child_srv, child_srvlen);
                      }
 
-                     if((strcmp(choice,"QUIT"))==0){
+                     if(strcmp(choice,"QUIT") == 0){
 
                         up_seq=-1;
                         size=0; // put it in the packet so that the server can read properly
 
-                        sprintf(buf_send,"%s %lu %d ", file_name, up_seq, size);
-                        dim=strlen(buf_send);
-                        buf_send[dim]='\0';
+                        sprintf(send_buffer, "%s %lu %d ", file_name, up_seq, size);
+                        dim = strlen(send_buffer);
+                        send_buffer[dim]='\0';
 
-                        connection->send_data(buf_send,dim,0,(struct sockaddr *)&child_srv,child_srvlen);
+                        connection->send_data(send_buffer, dim, 0, (struct sockaddr *) &child_srv, child_srvlen);
 
-                        connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+                        connection->recv_data(receive_buffer, BUFLEN, 0, (struct sockaddr*) &child_srv, &child_srvlen);
 
                         fd->close_file(&fdR); // close fd but I still can do other things
                         break;
@@ -364,58 +362,58 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
 
       if(FD_ISSET(connection->get_fd(), &u_cset)){
 
-                    memset(buf_recv,0,sizeof(buf_recv));
-                    dim2 = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
-                    buf_recv[dim2]='\0';
+                    memset(receive_buffer, 0, sizeof(receive_buffer));
+                    dim2 = connection->recv_data(receive_buffer, BUFLEN, 0, (struct sockaddr*) &child_srv, &child_srvlen);
+                    receive_buffer[dim2]='\0';
 
-                    sscanf(buf_recv,"%lu",&recv_seq);
-                       if(up_seq!=recv_seq){
-                         printf("\n corrente: %lu - ricevuto: %lu",up_seq,recv_seq);
+                    sscanf(receive_buffer, "%lu", &recv_seq);
+                       if(up_seq != recv_seq){
+                         printf("\n current: %lu - received: %lu", up_seq, recv_seq);
 
-                         connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+                         connection->send_data(send_buffer, (dim+size), 0, (struct sockaddr *) &child_srv, child_srvlen);
                          prove++; 
 
-                         if(prove==3){
+                         if(prove == 3){
                             break;
                          }
                        }
                       FD_SET(fileno(stdin),&u_cset);
                      }
                     }else{ // timeout expired without receiving reply: resend the packet
-                       printf("\nTimeout has expired: send again the packet with ID %lu. Tentativo [%d]\n",up_seq,tentativi+1);
+                       printf("\nTimeout has expired: send again the packet with ID %lu. Tentativo [%d]\n", up_seq, tentativi+1);
 
-                       connection->send_data(buf_send,(dim+size),0,(struct sockaddr *)&child_srv,child_srvlen);
+                       connection->send_data(send_buffer, (dim+size), 0, (struct sockaddr *) &child_srv, child_srvlen);
 
                        tentativi++;
 
-                       if(tentativi==3){
+                       if(tentativi == 3){
                           break;
                        }
                     }
                     
-              }while((tentativi<3 && up_seq!=recv_seq) || (prove<3 && up_seq!=recv_seq));
+              }while((tentativi < 3 && up_seq != recv_seq) || (prove < 3 && up_seq != recv_seq));
 
-              if((tentativi==3) || (prove==3) || (up_seq==-1)){
+              if((tentativi == 3) || (prove == 3) || (up_seq == -1)){
                  break;
               }
 
-        if(size<BUFLEN){ // I read less than the dimension of the buffer then it is the last one
-                 strcpy(buf_send,"EOF");
-                 memset(buf_recv,0,sizeof(buf_recv));
-                 size=strlen(buf_send);
-     buf_send[size]='\0';
+        if(size < BUFLEN){ // I read less than the dimension of the buffer then it is the last one
+                 strcpy(send_buffer,"EOF");
+                 memset(receive_buffer, 0, sizeof(receive_buffer));
+                 size = strlen(send_buffer);
+     send_buffer[size]='\0';
 
-                 connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                 connection->send_data(send_buffer, size, 0, (struct sockaddr *) &child_srv, child_srvlen);
               }
               
         up_seq++;
  
-              memset(buf_send,0,sizeof(buf_send));
-              memset(buf_tmp,0,sizeof(buf_tmp));
+              memset(send_buffer, 0, sizeof(send_buffer));
+              memset(buf_tmp, 0, sizeof(buf_tmp));
 
            } // end loop used to send the file
 
-           if((tentativi!=3)&&(prove!=3)&&(up_seq!=-1)&&(flag==1)){ // normal exit
+           if((tentativi != 3) && (prove != 3) && (up_seq != -1) && (flag == 1)){ // normal exit
               tentativi=0;
               prove=0;
               do{
@@ -424,30 +422,30 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
            FD_SET(fileno(stdin), &u_cset);
            FD_SET(connection->get_fd(), &u_cset);
                  
-                 timeout.tv_sec=TIMEOUT;
-           timeout.tv_usec=0;
+                 timeout.tv_sec = TIMEOUT;
+           timeout.tv_usec = 0;
 
-                 if(select(FD_SETSIZE,&u_cset,NULL,NULL,&timeout)>0){
+                 if(select(FD_SETSIZE, &u_cset, NULL, NULL, &timeout) > 0){
 
-                    connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &child_srv,&child_srvlen);
+                    connection->recv_data(receive_buffer, BUFLEN, 0, (struct sockaddr*) &child_srv, &child_srvlen);
 
-                    if(strcmp(buf_recv,"OK")==0){
+                    if(strcmp(receive_buffer, "OK") == 0){
                        printf("\nFile '%s' corrctly sent.\n", file_name);
-                 fd->close_file(&fdR);
+                       fd->close_file(&fdR);
                     }else{
-                       printf("[%d]No positive answer from the server, trying again..\n",prove+1);
+                       printf("[%d]No positive answer from the server, trying again..\n", prove+1);
 
-                       connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                       connection->send_data(send_buffer, size, 0, (struct sockaddr *) &child_srv, child_srvlen);
 
                        prove++;
                     }
                  }else{ // timeout expired, send again.
-                    printf("[%d]Timeout over: sending again last packet..\n",tentativi+1);
+                    printf("[%d]Timeout over: sending again last packet..\n", tentativi+1);
 
-                    connection->send_data(buf_send,size,0,(struct sockaddr *)&child_srv,child_srvlen);
+                    connection->send_data(send_buffer, size, 0, (struct sockaddr *) &child_srv, child_srvlen);
                     tentativi++;
                  }
-              }while(((strcmp(buf_recv,"OK")!=0) && (tentativi<3)) || ((strcmp(buf_recv,"OK")!=0) && (tentativi<3)));
+              }while(((strcmp(buf_recv,"OK") != 0) && (tentativi < 3)) || ((strcmp(buf_recv,"OK") != 0) && (tentativi < 3)));
            }
 
           }else{
@@ -478,7 +476,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
            size=strlen(buf_send);
            buf_send[size]='\0';
 
-           connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv, father_srvlen);
+           connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv, );
 
            memset(buf_recv,0,sizeof(buf_recv));
 
@@ -493,7 +491,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
      FD_SET(fileno(stdin), &u_cset);
      FD_SET(connection->get_fd(), &u_cset);
 
-           connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&father_srvlen);           
+           connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*)&father_srv,&);           
            new_port=atoi(buf_recv);
 
      child_srv.sin_family = AF_INET; // address family IPv4
@@ -714,7 +712,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
             size=strlen(buf_send);
             buf_send[size]='\0';
 
-            connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,father_srvlen);
+            connection->send_data(buf_send,size,0,(struct sockaddr *)&father_srv,);
 
             printf("Sent '%s %s'.\n", ext_choice, ext_file_name);
 
@@ -733,7 +731,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
                FD_SET(fileno(stdin), &d_cset);
                FD_SET(connection->get_fd(), &d_cset);
 
-               size = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen);
+               size = connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&);
 
                buf_recv[size]='\0';
                printf("DEBUG DOWNLOAD SERVER: %s\n", buf_recv);
@@ -753,7 +751,7 @@ void upload_file(udp_socket *connection, linked_list *list, fd_manager *fd, stru
 
                      memset(buf_recv,0,sizeof(buf_recv));
  
-                     connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&father_srvlen);
+                     connection->recv_data(buf_recv,BUFLEN,0,(struct sockaddr*) &father_srv,&);
                      printf("RECEIVED SOMETHING\n");
                      new_port=atoi(buf_recv);
 
