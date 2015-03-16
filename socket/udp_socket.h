@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <errno.h>
+
 class udp_socket
 {
    public:

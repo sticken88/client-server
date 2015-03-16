@@ -2,16 +2,16 @@
 
 ssize_t udp_socket::recv_data(void *bufptr, size_t nbytes, int flags, struct sockaddr *sa, socklen_t *salenptr)
 {
-   ssize_t n;
+   ssize_t bytes_received;
 
-   n = recvfrom(fd, bufptr, nbytes, flags, sa, salenptr);
+   bytes_received = recvfrom(fd, bufptr, nbytes, flags, sa, salenptr);
 
-   if(n < 0){
-      printf("Error while receiving data, closing..\n");
+   if(bytes_received < 0){
+      printf("[Error]: '%s' occurred while receiving data, closing..\n",  strerror(errno));
       exit(1);
    }
 
-   return n;
+   return bytes_received;
 }
 
 void udp_socket::send_data(void *bufptr, size_t nbytes, int flags, const struct sockaddr *sa, socklen_t salen)
@@ -21,7 +21,7 @@ void udp_socket::send_data(void *bufptr, size_t nbytes, int flags, const struct 
    bytes_sent = sendto(fd, bufptr, nbytes, flags, sa, salen);
 
    if(bytes_sent != nbytes){
-      printf("Error while sending data, closing\n");
+      printf("[Error]: '%s' occurred while sending data, closing..\n", strerror(errno));
       exit(1);
    }
 }
